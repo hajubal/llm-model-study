@@ -1,0 +1,6 @@
+{
+  "review_threshold": 0.45,
+  "block_threshold": 0.80,
+  "rule_match_action": "review"
+}
+

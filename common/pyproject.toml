@@ -1,0 +1,15 @@
+[project]
+name = "guardlab"
+version = "0.1.0"
+description = "교육용 Jailbreak 및 Prompt Injection 탐지 모델 공용 패키지"
+requires-python = ">=3.10,<3.13"
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["guardlab*"]
+
