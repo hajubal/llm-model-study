@@ -81,6 +81,39 @@ python 02-intermediate/03-first-finetune/run_seeds.py \
    **둘 다 확인해야 한다** — seed 편차가 작아도 test가 24건이면 숫자는 여전히 못 믿는다.)
 3. seed 3개로 잰 "최대−최소"는 그 자체로 표본이 작다. 이 값을 얼마나 믿을 수 있는가?
 
+### 과제 2-B · seed를 고정하면 재현되는가 (반드시 해볼 것)
+
+`--seeds 42 42`는 같은 seed라 막혀 있다. 대신 **같은 명령을 두 번** 돌린다.
+
+```bash
+python 02-intermediate/03-first-finetune/train_seq_cls.py \
+  --data runs/data/v1 --out runs/models/repro-A --seed 42
+python 02-intermediate/03-first-finetune/predict.py \
+  --model runs/models/repro-A --input runs/data/v1/test.jsonl \
+  --output runs/models/repro-A/test-pred.jsonl
+python 01-beginner/03-evaluation-basics/evaluate.py \
+  --gold runs/data/v1/test.jsonl --pred runs/models/repro-A/test-pred.jsonl | sed -n '3,4p'
+
+# 완전히 같은 명령을 repro-B로 한 번 더
+```
+
+**이 커리큘럼의 실측**: `--seed 42`로 네 번 학습한 결과가
+macro F1 **0.584 / 0.625 / 0.637 / 0.715**였다. 폭 0.131로, seed를 바꿔서 생긴
+편차(0.108~0.157)와 비슷하다.
+
+**답할 것**
+
+1. 두 번의 결과가 같은가? 다르다면 왜 다른가?
+   (힌트: MPS/GPU 커널은 연산 순서가 실행마다 달라질 수 있고, 부동소수점 덧셈은
+   **결합법칙이 성립하지 않는다** — `(a+b)+c ≠ a+(b+c)`.)
+2. `--device cpu`로 두 번 돌리면 어떤가? 대신 무엇을 잃는가?
+3. **"재현 명령을 문서에 적어 두었다"는 것이 재현성을 보장하는가?** 보장하지 않는다면,
+   리포트에 무엇을 추가로 적어야 하는가?
+
+세 번째가 이 과제의 핵심이다. 재현 가능한 연구의 최소 조건은 명령을 적는 것이지만,
+**충분 조건은 아니다.** 여러 번 돌린 범위를 함께 적어야 다음 사람이 자기 숫자가
+정상인지 판단할 수 있다.
+
 나중에 v2를 만들면 개선폭을 이 편차와 바로 비교할 수 있다.
 
 ```bash

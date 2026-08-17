@@ -103,10 +103,18 @@ def main() -> None:
         rows = rows[: args.limit]
 
     if not args.yes:
-        answer = input(
+        prompt = (
             f"{len(rows)}건을 Anthropic API로 전송한다. 운영 로그나 실제 사용자 대화가 아닌지 "
             f"확인했는가? [y/N] "
         )
+        try:
+            answer = input(prompt)
+        except EOFError:
+            # 파이프·CI처럼 stdin이 없는 환경. 조용히 진행하면 확인 절차가 무의미해지므로
+            # 명시적으로 막고, 의도적으로 자동 실행하려면 --yes를 쓰게 한다.
+            raise SystemExit(
+                "stdin이 없어 확인을 받을 수 없다. 외부 전송을 의도했다면 --yes를 붙여 다시 실행한다."
+            )
         if answer.strip().lower() not in {"y", "yes"}:
             raise SystemExit("취소했다.")
 

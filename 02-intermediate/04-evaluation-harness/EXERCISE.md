@@ -26,7 +26,7 @@ python 02-intermediate/04-evaluation-harness/evaluate.py \
 mkdir -p runs/exercise/04-harness
 
 # (a) 예측에서 한 줄 제거
-head -191 runs/models/mbert-v1/test-pred.jsonl > runs/exercise/04-harness/missing.jsonl
+sed '$d' runs/models/mbert-v1/test-pred.jsonl > runs/exercise/04-harness/missing.jsonl  # 마지막 줄 제거
 python 02-intermediate/04-evaluation-harness/evaluate.py \
   --gold runs/data/v1/test.jsonl --pred runs/exercise/04-harness/missing.jsonl \
   --out runs/exercise/04-harness/r1

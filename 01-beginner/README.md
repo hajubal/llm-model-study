@@ -89,8 +89,12 @@ python 01-beginner/03-evaluation-basics/evaluate.py \
 
 선택 — LLM에게 직접 판정시키는 기준선. **벤치 문장을 외부 API로 전송한다.**
 
+사전 준비: `pip install anthropic` 후 `ANTHROPIC_API_KEY` 환경변수를 설정하거나
+`ant auth login`으로 로그인한다. 준비가 끝나면:
+
 ```bash
-pip install anthropic && export ANTHROPIC_API_KEY=...
 python 01-beginner/04-run-pretrained/run_llm_judge.py \
   --input common/data/bench/gold.jsonl --output runs/judge-pred.jsonl
 ```
+
+실행하면 외부 전송 확인을 묻는다. 스크립트나 CI에서 돌릴 때는 `--yes`를 붙인다.

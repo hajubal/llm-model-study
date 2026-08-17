@@ -53,7 +53,7 @@ python 02-intermediate/05-error-analysis/error_dump.py \
   --gold runs/data/v1/dev.jsonl --pred runs/models/mbert-v1/dev-pred.jsonl
 ```
 
-실제 출력:
+실제 출력(한 번의 실행 예시):
 
 ```text
 gold -> pred / source / language
@@ -116,6 +116,14 @@ predicted_attack = attack_score >= threshold
 python 02-intermediate/05-error-analysis/threshold_sweep.py \
   --gold runs/data/v1/dev.jsonl --pred runs/models/mbert-v1/dev-pred.jsonl --step 0.1
 ```
+
+
+> **이 절과 앞 절의 출력은 모두 한 번의 실행 예시다.** 같은 명령을 다시 돌려도 숫자가 달라진다
+> — **같은 seed로 재학습해도 macro F1이 0.13 폭으로 흔들린다**(`RESULTS.md` 참고).
+> 여러분의 숫자는 다를 것이고, 그것이 정상이다.
+>
+> **값이 아니라 패턴을 읽는다**: threshold를 움직여도 결과가 거의 안 바뀌는가?
+> 확신도가 양 끝에 몰려 있는가? 확신하며 틀리는 오류가 있는가? 이 세 가지는 실행마다 재현된다.
 
 실측:
 

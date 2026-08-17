@@ -52,7 +52,7 @@ runs/models/mbert-v1/test-report/
 
 ```json
 {
-  "n_samples": 192,
+  "n_samples": 240,
   "accuracy": 0.75,
   "macro_f1": 0.75,
   "attack_recall": 1.0,
@@ -170,9 +170,12 @@ python 02-intermediate/04-evaluation-harness/evaluate.py \
 `tool`만 0.958로 높은 것이 오히려 단서다. 같은 조건인데 이 slice만 잘 되는 이유를 설명할 수
 없다면, 그 0.958도 믿을 수 없는 숫자다 — 다음 레슨의 에러 분석에서 확인한다.
 
-> **주의** — 이 slice 숫자들은 seed 42의 단일 실행이다. seed 편차가 macro F1 0.108인 만큼,
-> slice 단위 숫자는 더 심하게 흔들린다(표본이 48건뿐이다). **slice 순위가 바뀌는지 확인하려면
-> seed를 여러 번 돌려야 한다.**
+> **주의** — 이 slice 숫자들은 한 번의 실행 예시다. **같은 seed로 다시 학습해도 재현되지 않는다.**
+> 실제로 두 번 돌린 결과가 `system` 0.208 ↔ 0.508, `retrieved` 0.280 ↔ 0.443이었다
+> (표본이 48건뿐이라 전체 지표보다 더 심하게 흔들린다).
+>
+> **그런데 순위는 유지된다** — `retrieved`/`system`이 항상 최악, `tool`이 항상 최고다.
+> 값이 아니라 **순위가 재현되는지**를 본다. 그것이 slice 분석에서 신뢰할 수 있는 신호다.
 
 > `source`가 왜 slice로 중요한지는 앞 레슨에서 다뤘다. 이 값이 dev/test에 남아 있도록 분할기가
 > `(label, language, source)`로 층화한다.

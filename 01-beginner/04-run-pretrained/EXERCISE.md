@@ -32,12 +32,25 @@ python 01-beginner/03-evaluation-basics/evaluate.py \
 
 각각 다른 출력 파일에 저장하고 채점한다.
 
+`names`를 B로 고친 뒤:
+
 ```bash
+mkdir -p runs/exercise/04-zs
 python 01-beginner/04-run-pretrained/run_zero_shot.py \
   --input common/data/bench/gold.jsonl --output runs/exercise/04-zs/pred-B.jsonl
 python 01-beginner/03-evaluation-basics/evaluate.py \
   --gold common/data/bench/gold.jsonl --pred runs/exercise/04-zs/pred-B.jsonl \
   --json-out runs/exercise/04-zs/report-B.json
+```
+
+다시 `names`를 C로 고친 뒤 같은 명령을 파일 이름만 바꿔 반복한다.
+
+```bash
+python 01-beginner/04-run-pretrained/run_zero_shot.py \
+  --input common/data/bench/gold.jsonl --output runs/exercise/04-zs/pred-C.jsonl
+python 01-beginner/03-evaluation-basics/evaluate.py \
+  --gold common/data/bench/gold.jsonl --pred runs/exercise/04-zs/pred-C.jsonl \
+  --json-out runs/exercise/04-zs/report-C.json
 ```
 
 세 결과를 한 표로 모은다.
