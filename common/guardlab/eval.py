@@ -51,9 +51,18 @@ class Report:
     per_label: dict[str, Counts]
     confusion: dict[str, dict[str, int]]
     errors: list[dict]
+    # guardlab.stats.bootstrap_ci의 결과. 지표 이름 -> (하한, 상한).
+    # None이면 구간을 계산하지 않은 것이고, 그 경우 숫자를 다른 실험과 비교하면 안 된다.
+    ci: dict[str, tuple[float, float]] | None = None
+
+    def _interval(self, metric: str) -> str:
+        if not self.ci or metric not in self.ci:
+            return ""
+        low, high = self.ci[metric]
+        return f" [{low:.3f}–{high:.3f}]"
 
     def to_dict(self) -> dict:
-        return {
+        obj = {
             "n_samples": self.n_samples,
             "accuracy": round(self.accuracy, 4),
             "macro_f1": round(self.macro_f1, 4),
@@ -63,16 +72,26 @@ class Report:
             "confusion": self.confusion,
             "n_errors": len(self.errors),
         }
+        if self.ci:
+            obj["ci"] = {metric: list(bounds) for metric, bounds in self.ci.items()}
+        return obj
 
     def to_markdown(self, title: str = "평가 결과") -> str:
         lines = [f"### {title}", ""]
         lines.append(
-            f"- 샘플 **{self.n_samples}** · accuracy **{self.accuracy:.3f}** · "
-            f"macro F1 **{self.macro_f1:.3f}**"
+            f"- 샘플 **{self.n_samples}** · accuracy **{self.accuracy:.3f}**"
+            f"{self._interval('accuracy')} · "
+            f"macro F1 **{self.macro_f1:.3f}**{self._interval('macro_f1')}"
         )
         lines.append(
-            f"- attack recall **{self.attack_recall:.3f}** · benign FPR **{self.benign_fpr:.3f}**"
+            f"- attack recall **{self.attack_recall:.3f}**{self._interval('attack_recall')} · "
+            f"benign FPR **{self.benign_fpr:.3f}**{self._interval('benign_fpr')}"
         )
+        if self.ci:
+            lines.append(
+                "- 대괄호는 95% bootstrap 신뢰구간이다. 두 실험의 구간이 크게 겹치면 "
+                "그 차이는 개선이 아니라 표본 변동일 수 있다"
+            )
         # support 0인 라벨은 F1이 0으로 macro 평균에 들어가고, 해당 지표의 분모도 0이 된다.
         # 단일 라벨 데이터(hard negative 모음 등)에서 숫자를 잘못 읽지 않도록 명시한다.
         empty = [label for label in LABELS if self.per_label[label].support == 0]

@@ -20,28 +20,46 @@
 
 | 항목 | 값 |
 |---|---|
-| 데이터 | 템플릿 90개 · train 384 / dev 144 / test 192 · 문장 중복 0% |
-| 학습 | distilbert-base-multilingual-cased · 8 epoch · lr 5e-5 · MPS 약 95초 |
-| 합성 test | macro F1 **0.750** · attack recall **0.914** · benign FPR **0.328** |
-| 독립 bench(24건) | macro F1 **0.837** · attack recall **0.938** · benign FPR **0.250** |
-| source slice | user **0.887** / retrieved **0.607** / tool **0.578** |
+| 데이터 | 템플릿 108개 · train 432 / dev 192 / test 240 · 문장 중복 0% |
+| 학습 | distilbert-base-multilingual-cased · 8 epoch · lr 5e-5 · MPS 약 175초 |
+
+**단일 실행 숫자를 먼저 보지 않는다.** seed 3개(42/43/44)로 잰 편차가 먼저다.
+
+| 합성 test 지표 | seed 42 | seed 43 | seed 44 | 평균 | **최대−최소** |
+|---|---:|---:|---:|---:|---:|
+| macro F1 | 0.625 | 0.733 | 0.666 | 0.674 | **0.108** |
+| attack recall | 1.000 | 0.969 | 0.744 | 0.904 | **0.256** |
+| benign FPR | 0.650 | 0.450 | 0.362 | 0.487 | **0.287** |
+
+독립 bench(24건, seed 42): macro F1 **0.717** [0.500–0.879] · attack recall 0.938 · benign FPR 0.375
+
+source slice (합성 test, seed 42): user **0.750** / tool **0.958** / retrieved **0.280** / system **0.208**
 
 ### 이 숫자를 어떻게 읽어야 하는가
 
-- **초급 기준선(규칙 0.672)을 넘었다.** 모델이 규칙보다 낫다는 것은 확인됐다
-- **benign FPR 0.328은 운영에 못 쓴다.** 정상의 3분의 1을 차단한다
-- **`tool` slice가 0.578로 최악이다.** 도구 출력 형태의 정상 문장을 공격으로 오해한다
-- 즉 이 모델은 **완성품이 아니라 개선 루프의 출발점**이다
+- **가장 중요한 열은 "최대−최소"다.** seed만 바꿔도 macro F1이 0.11, benign FPR이 0.29 폭으로
+  흔들린다. **단일 실행 결과를 소수점 셋째 자리까지 인용하는 것은 근거가 없다.**
+- **"규칙 기반선을 넘었다"고 단정할 수 없다.** 같은 데이터(bench 24건)에서 모델 0.717
+  [0.500–0.879] vs 규칙 0.672 [0.445–0.841] — **두 구간이 거의 완전히 겹친다.**
+  다른 데이터의 숫자끼리 비교하는 것은 더 나쁘다.
+- **benign FPR 0.487은 운영에 못 쓴다.** 정상의 절반을 차단한다.
+- **`retrieved`(0.280)와 `system`(0.208)이 최악이다.** 원인은 데이터에 있다 —
+  `(label, language, source)` 조합 24개 중 **18개가 train에 템플릿 1개(문장 8건)뿐**이고,
+  `user`만 조합당 6개다. 자세한 내용은 [02 레슨](02-synthetic-data/LESSON.md).
+- 즉 이 모델은 **완성품이 아니라 개선 루프의 출발점**이다.
 
 `macro F1 ≥ 0.80`, `benign FPR ≤ 5%`는 **개선 루프의 목표치**이지 기본 설정의 결과가 아니다.
-거기에 도달하려면 하드 네거티브 템플릿을 늘리고(02 과제), threshold를 조정해야 한다(05 과제).
+거기에 도달하려면 약한 slice의 템플릿을 늘리고(02 과제 2-B), threshold를 조정해야 한다(05 과제).
+
+예시 답안: [SOLUTIONS.md](SOLUTIONS.md) — 먼저 스스로 답한 뒤에 열 것.
 
 ## 중급 수료 기준
 
 숫자가 아니라 다음을 할 수 있으면 통과다.
 
 1. **누수를 두 종류 이상 설명**할 수 있다 (group 누수 / 텍스트 복제 / near-duplicate)
-2. 성능 변화가 **개선인지 학습 노이즈인지** 판단하는 절차를 안다 (seed 편차 측정)
+2. 성능 변화가 **개선인지 학습 노이즈인지** 판단하는 절차를 안다.
+   **두 가지 불확실성을 구분**할 수 있다 — seed 편차(학습 불안정)와 신뢰구간(표본 부족)
 3. dev에서 threshold를 정하고 **test를 한 번만** 여는 규율을 지켰다
 4. 오류를 유형별로 나누고 **처방을 하나만** 골랐다
 5. 개선 결과를 **악화된 slice까지 포함해** 기록했다
@@ -55,9 +73,14 @@ source .venv/bin/activate
 python 02-intermediate/02-synthetic-data/gen_synth.py --out runs/data/v1
 python 02-intermediate/01-dataset-schema/inspect_data.py runs/data/v1
 
-# 03: 학습과 예측 (MPS 기준 약 95초)
+# 03: 학습과 예측 (MPS 기준 약 175초)
 python 02-intermediate/03-first-finetune/train_seq_cls.py \
   --data runs/data/v1 --out runs/models/mbert-v1
+
+# 03: seed 편차 먼저 재기 — 이후 모든 비교의 기준선 (학습 3회, 약 10분)
+python 02-intermediate/03-first-finetune/run_seeds.py \
+  --data runs/data/v1 --gold runs/data/v1/test.jsonl \
+  --out runs/seeds/v1 --seeds 42 43 44
 python 02-intermediate/03-first-finetune/predict.py \
   --model runs/models/mbert-v1 --input runs/data/v1/test.jsonl \
   --output runs/models/mbert-v1/test-pred.jsonl
@@ -80,6 +103,10 @@ python 02-intermediate/03-first-finetune/predict.py \
 python 02-intermediate/05-error-analysis/error_dump.py \
   --gold runs/data/v1/dev.jsonl --pred runs/models/mbert-v1/dev-pred.jsonl
 python 02-intermediate/05-error-analysis/threshold_sweep.py \
+  --gold runs/data/v1/dev.jsonl --pred runs/models/mbert-v1/dev-pred.jsonl
+
+# 05: 확률 보정 확인 — threshold 0.8이 "80% 확률"이 아님을 실측한다
+python 02-intermediate/05-error-analysis/calibration.py \
   --gold runs/data/v1/dev.jsonl --pred runs/models/mbert-v1/dev-pred.jsonl
 ```
 

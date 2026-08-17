@@ -14,7 +14,8 @@ python 02-intermediate/03-first-finetune/predict.py \
   --output runs/models/mbert-v1/perturbed-pred.jsonl
 ```
 
-기준 실측(모델): original 0.750 → **case 0.669** (attack recall 0.914 → **0.609**)
+기준 실측: 규칙 기반선 attack recall 0.562 → **zero_width 0.000 / base64 0.000**,
+모델 benign FPR 0.487 → **homoglyph 1.000 / base64 1.000**
 
 ---
 
@@ -149,7 +150,7 @@ done
 
 | 모델 | 원본 test macro F1 | 변형 test macro F1 |
 |---|---:|---:|
-| mbert-v1 (증강 없음) | 0.750 | |
+| mbert-v1 (증강 없음) | 0.637 | |
 | mbert-aug (train 변형) | | |
 
 **답할 것**:

@@ -14,7 +14,7 @@ python 02-intermediate/04-evaluation-harness/evaluate.py \
   --out runs/models/mbert-v1/test-report
 ```
 
-기준값: macro F1 **0.750**, attack recall **0.914**, benign FPR **0.328**
+기준값: macro F1 **0.637**, attack recall **1.000**, benign FPR **0.487** (합성 test 240건, seed 42)
 
 ---
 

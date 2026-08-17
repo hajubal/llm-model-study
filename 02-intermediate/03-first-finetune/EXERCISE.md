@@ -14,9 +14,11 @@ python 02-intermediate/03-first-finetune/predict.py \
   --output runs/models/mbert-v1/test-pred.jsonl
 ```
 
-기준값: test macro F1 **0.750**, attack recall **0.914**, benign FPR **0.328** (8 epoch, lr 5e-5, seed 42)
+기준값: test macro F1 **0.637**, attack recall **1.000**, benign FPR **0.487** (8 epoch, lr 5e-5, seed 42, n=240)
 
-> 학습 1회에 MPS 기준 약 95초, CPU에서는 훨씬 오래 걸린다. 시간이 부족하면 과제 1·2만 하고 나머지는
+> **이 숫자를 그대로 믿지 않는다.** seed만 바꿔도 macro F1이 0.625~0.733으로 흔들린다(과제 2에서 직접 잰다).
+
+> 학습 1회에 MPS 기준 약 175초, CPU에서는 훨씬 오래 걸린다. 시간이 부족하면 과제 1·2만 하고 나머지는
 > `--max-steps`로 축소해서 흐름만 확인한다.
 
 ---
@@ -52,29 +54,40 @@ PY
 
 **아무것도 안 바꾸고 seed만** 3번 바꿔 학습한다. 여기서 나오는 폭이 "노이즈의 크기"다.
 
+`run_seeds.py`가 학습 → 예측 → 평가를 seed마다 반복하고 편차를 집계한다.
+
 ```bash
-for s in 42 7 2026; do
-  python 02-intermediate/03-first-finetune/train_seq_cls.py \
-    --data runs/data/v1 --out runs/models/seed-$s --seed $s 2>&1 | tail -1
-  python 02-intermediate/03-first-finetune/predict.py \
-    --model runs/models/seed-$s --input runs/data/v1/test.jsonl \
-    --output runs/models/seed-$s/test-pred.jsonl 2>&1 | tail -1
-  echo -n "seed=$s: "
-  python 01-beginner/03-evaluation-basics/evaluate.py \
-    --gold runs/data/v1/test.jsonl --pred runs/models/seed-$s/test-pred.jsonl 2>&1 | sed -n '3,4p' | tr '\n' ' '
-  echo
-done
+python 02-intermediate/03-first-finetune/run_seeds.py \
+  --data runs/data/v1 --gold runs/data/v1/test.jsonl \
+  --out runs/seeds/v1 --seeds 42 43 44
 ```
+
+결과는 `runs/seeds/v1/seed-variance.md`에 저장된다. 모델 가중치는 하나에 약 520MB이므로
+평가 후 자동으로 지운다(남기려면 `--keep-models`).
 
 | seed | macro F1 | attack recall | benign FPR |
 |---:|---:|---:|---:|
 | 42 | | | |
-| 7 | | | |
-| 2026 | | | |
+| 43 | | | |
+| 44 | | | |
 | **최대 − 최소** | | | |
 
-**답할 것**: macro F1의 폭이 얼마인가? 앞으로 어떤 개선을 했을 때 **이 폭보다 작은 차이**가 나면
-어떻게 해석해야 하는가?
+**답할 것**
+
+1. macro F1의 폭이 얼마인가? 앞으로 어떤 개선을 했을 때 **이 폭보다 작은 차이**가 나면
+   어떻게 해석해야 하는가?
+2. `evaluate.py`가 함께 출력하는 **bootstrap 신뢰구간**과 이 seed 편차는 무엇이 다른가?
+   (힌트: 하나는 학습이 불안정해서, 다른 하나는 평가 표본이 작아서 생긴다.
+   **둘 다 확인해야 한다** — seed 편차가 작아도 test가 24건이면 숫자는 여전히 못 믿는다.)
+3. seed 3개로 잰 "최대−최소"는 그 자체로 표본이 작다. 이 값을 얼마나 믿을 수 있는가?
+
+나중에 v2를 만들면 개선폭을 이 편차와 바로 비교할 수 있다.
+
+```bash
+python 02-intermediate/03-first-finetune/run_seeds.py \
+  --data runs/data/v1 --gold runs/data/v1/test.jsonl --out runs/seeds/v1 \
+  --seeds 42 43 44 --compare runs/models/mbert-v2/test-report/report.json
+```
 
 ---
 
@@ -100,7 +113,7 @@ python 01-beginner/03-evaluation-basics/evaluate.py \
 
 | 설정 | macro F1 | attack recall | benign FPR | 학습 시간(초) |
 |---|---:|---:|---:|---:|
-| 기준 (batch 8) | 0.750 | 0.914 | 0.328 | 95.5 |
+| 기준 (batch 8) | 0.637 | 1.000 | 0.487 | 174.7 |
 | 내가 바꾼 것 | | | | |
 
 학습 시간은 `train_summary.json`의 `train_seconds`에 있다.
@@ -159,15 +172,15 @@ done
 - ...
 
 ## Training data
-- 출처: guardlab.synth (템플릿 90개, 합성)
-- 규모: train 384 / dev 144 / test 192
+- 출처: guardlab.synth (템플릿 108개, 합성)
+- 규모: train 432 / dev 192 / test 240
 - seed: 42, n_per_group: 8
 - **한계: 합성 템플릿이며 실제 사용자 표현 분포를 대표하지 않는다**
 
 ## Metrics
 | 데이터 | n | macro F1 | attack recall | benign FPR |
 |---|---:|---:|---:|---:|
-| 합성 test | 192 | | | |
+| 합성 test | 240 | | | |
 | 독립 bench | 24 | | | |
 
 ## Limitations

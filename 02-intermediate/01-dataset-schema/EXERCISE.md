@@ -134,9 +134,9 @@ PY
 python 02-intermediate/01-dataset-schema/inspect_data.py runs/data/v1
 ```
 
-| split | n | BENIGN | PI | JB | user | retrieved | tool | ko | en | 그룹 수 |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| train | 384 | 128 | 128 | 128 | 288 | 48 | 48 | 192 | 192 | 48 |
+| split | n | BENIGN | PI | JB | user | retrieved | tool | system | ko | en | 그룹 수 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| train | 432 | 144 | 144 | 144 | 288 | 48 | 48 | 48 | 216 | 216 | 54 |
 | dev | | | | | | | | | | |
 | test | | | | | | | | | | |
 

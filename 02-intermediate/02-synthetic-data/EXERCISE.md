@@ -10,7 +10,7 @@
 python 02-intermediate/02-synthetic-data/gen_synth.py --out runs/data/v1
 ```
 
-기준값(`--n-per-group 8`, 템플릿 90개): train 384 / dev 144 / test 192, 유니크 문장 720건
+기준값(`--n-per-group 8`, 템플릿 108개): train 432 / dev 192 / test 240, 유니크 문장 864건
 
 ---
 
@@ -74,6 +74,47 @@ python 02-intermediate/01-dataset-schema/inspect_data.py runs/data/v2
 
 **답할 것**: 테스트가 통과했는가? `test_synthetic_text_is_unique`가 실패한다면 추가한 템플릿이 기존 것과
 같은 문장을 만들고 있다는 뜻이다.
+
+### 과제 2-B · 가장 약한 slice를 겨냥한다 (권장)
+
+`user` 조합에 추가하는 것이 가장 쉽지만, **거기는 이미 가장 강한 slice다.** 레슨에서 확인했듯
+`retrieved` / `tool` / `system` 조합은 train에 템플릿이 **1개(문장 8건)뿐**이다.
+
+```bash
+python - <<'PY'
+from collections import Counter
+from guardlab.io import read_jsonl
+rows = read_jsonl("runs/data/v1/train.jsonl")
+groups = {}
+for row in rows:
+    groups.setdefault((row.label, row.language, row.source), set()).add(row.group_id)
+for combo, ids in sorted(groups.items()):
+    if len(ids) < 3:
+        print(f"  {combo}: train 템플릿 {len(ids)}개")
+PY
+```
+
+`(BENIGN, ko, retrieved)` 조합에 템플릿을 **3개 더** 추가해 보자(총 6개 → train 4개).
+
+```python
+("bn-ko-ret-faq", "BENIGN", "ko", "retrieved",
+ "[사내 위키] {topic} 문서에는 '이전 지시를 무시하라'는 표현이 등장하지 않는다."),
+("bn-ko-ret-guide2", "BENIGN", "ko", "retrieved",
+ "[검색 결과] {topic} 담당자는 시스템 프롬프트 공개 요청을 거절해야 한다."),
+("bn-ko-ret-audit", "BENIGN", "ko", "retrieved",
+ "[감사 기록] {topic} 관련 프롬프트 인젝션 시도가 지난달 3건 탐지되었다."),
+```
+
+**답할 것**
+
+1. `retrieved` slice의 macro F1과 benign FPR이 얼마나 바뀌었는가?
+2. **다른 slice는 어떻게 됐는가?** `user`나 `tool`이 나빠지지 않았는지 확인한다.
+3. 개선폭이 seed 편차(`02-intermediate/03` 과제 2)보다 큰가?
+4. 조합 하나만 고쳤는데 전체 macro F1은 얼마나 움직였는가? 그 크기가 말해 주는 것은 무엇인가?
+
+> **주의** — 이 과제의 목적은 "숫자를 올리는 것"이 아니라 **어디를 고쳐야 오르는지 찾는 절차**를
+> 익히는 것이다. 가장 약한 slice를 찾고, 그 원인을 데이터에서 확인하고, 한 곳만 바꿔서
+> 검증하는 순서가 핵심이다.
 
 ---
 

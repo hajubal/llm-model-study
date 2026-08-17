@@ -16,8 +16,8 @@
 두 가지를 동시에 바꾸면 이런 상황이 된다.
 
 ```text
-v1: macro F1 0.750
-v2: macro F1 0.780   (데이터 추가 + threshold 조정)
+v1: macro F1 0.637
+v2: macro F1 0.667   (데이터 추가 + threshold 조정)
 ```
 
 0.03이 올랐는데, **데이터 덕분인지 threshold 덕분인지 알 수 없다.** 심지어 데이터는 -0.02, threshold는
@@ -40,7 +40,10 @@ python 02-intermediate/04-evaluation-harness/evaluate.py \
   --out runs/models/mbert-v1/bench-report
 ```
 
-기준값 예시(실측): macro F1 **0.837**, attack recall **0.938**, benign FPR **0.250**
+기준값 예시(실측, seed 42): macro F1 **0.717** [0.500–0.879], attack recall **0.938**, benign FPR **0.375**
+
+> **비교 전에 seed 편차부터 본다.** 이 데이터에서 macro F1의 seed 폭은 **0.108**이다
+> (`02-intermediate/03` 과제 2). 0.03짜리 개선은 노이즈와 구분되지 않는다.
 
 > 벤치마크는 **학습에 쓰지 않은 독립 데이터**여야 한다. `common/data/bench/gold.jsonl`을 절대 train에
 > 넣지 않는다.
@@ -94,7 +97,7 @@ python 02-intermediate/06-mini-project/compare_runs.py \
 ```text
 | run | macro F1 | attack recall | benign FPR | n |
 |---|---:|---:|---:|---:|
-| runs/models/mbert-v1/bench-report | 0.837 | 0.938 | 0.250 | 24 |
+| runs/models/mbert-v1/bench-report | 0.717 [0.500–0.879] | 0.938 | 0.375 | 24 |
 | runs/models/mbert-v2/bench-report | ... | ... | ... | 24 |
 ```
 

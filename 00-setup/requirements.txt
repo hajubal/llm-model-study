@@ -16,3 +16,8 @@ tqdm>=4.66
 matplotlib>=3.8
 pytest>=8.0
 
+# 선택 사항 — LLM-as-a-judge 기준선(01-beginner/04/run_llm_judge.py)에만 필요하다.
+# 이 스크립트는 텍스트를 외부 API로 전송하므로 실행은 명시적 선택이어야 한다.
+# 쓰지 않을 거면 설치하지 않아도 나머지 커리큘럼은 전부 돈다.
+anthropic>=0.69
+

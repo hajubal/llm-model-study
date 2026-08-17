@@ -101,7 +101,7 @@ if torch.cuda.is_available():         return "cuda"     # NVIDIA GPU
 return "cpu"
 ```
 
-Apple Silicon에서는 MPS를 쓴다. 학습 시간이 CPU 대비 크게 줄어든다(이 데이터 기준 약 95초).
+Apple Silicon에서는 MPS를 쓴다. 학습 시간이 CPU 대비 크게 줄어든다(이 데이터 기준 약 175초).
 MPS에서 미지원 연산 오류가 나면 `export PYTORCH_ENABLE_MPS_FALLBACK=1`을 설정한다.
 
 ---
@@ -127,7 +127,7 @@ python 02-intermediate/03-first-finetune/predict.py \
 {'loss': 0.4133, ..., 'epoch': 2.08}
 {'eval_loss': 0.7752, 'eval_accuracy': 0.729, 'eval_macro_f1': 0.731, 'epoch': 2.0}
 ...
-{'train_runtime': 95.5, 'train_samples_per_second': 32.1, 'train_loss': 0.2104}
+{'train_runtime': 174.7, 'train_samples_per_second': 19.8, 'train_loss': 0.2104}
 ```
 
 읽는 법:
@@ -144,7 +144,7 @@ python 02-intermediate/03-first-finetune/predict.py \
 | 설정 | test macro F1 | attack recall | benign FPR |
 |---|---:|---:|---:|
 | 4 epoch / 3e-5 | 0.737 | 0.883 | 0.375 |
-| **8 epoch / 5e-5** | **0.750** | 0.914 | 0.328 |
+| **8 epoch / 5e-5** | **0.637** | 1.000 | 0.487 |
 | 12 epoch / 5e-5 | 0.659 | 0.961 | 0.500 |
 
 12 epoch에서 오히려 나빠졌다. 학습 데이터는 더 잘 맞히지만 **처음 보는 표현에서 무너진** 것이다.
@@ -171,9 +171,9 @@ cat runs/models/mbert-v1/train_summary.json
   "batch": 8,
   "learning_rate": 5e-05,
   "max_len": 192,
-  "n_train": 384,
+  "n_train": 432,
   "n_dev": 144,
-  "train_seconds": 95.5,
+  "train_seconds": 174.7,
   "dev_metrics": {"eval_accuracy": 0.75, "eval_macro_f1": 0.752, ...}
 }
 ```

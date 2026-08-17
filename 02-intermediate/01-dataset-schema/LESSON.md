@@ -134,7 +134,7 @@ python 02-intermediate/01-dataset-schema/inspect_data.py runs/data/v1
 실제 출력:
 
 ```text
-train n= 384 labels={'PROMPT_INJECTION': 128, 'JAILBREAK': 128, 'BENIGN': 128} sources={'user': 288, 'retrieved': 48, 'tool': 48} languages={'ko': 192, 'en': 192}
+train n= 432 labels={'BENIGN': 144, 'PROMPT_INJECTION': 144, 'JAILBREAK': 144} sources={'user': 288, 'retrieved': 48, 'tool': 48, 'system': 48} languages={'ko': 216, 'en': 216}
 dev   n= 144 labels={'BENIGN': 48, 'JAILBREAK': 48, 'PROMPT_INJECTION': 48} sources={'retrieved': 48, 'user': 48, 'tool': 48} languages={'ko': 72, 'en': 72}
 test  n= 192 labels={'PROMPT_INJECTION': 64, 'BENIGN': 64, 'JAILBREAK': 64} sources={'user': 96, 'tool': 48, 'retrieved': 48} languages={'ko': 96, 'en': 96}
 OK: id 중복 없음, group_id leakage 없음

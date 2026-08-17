@@ -12,7 +12,9 @@ ML 경험이 없어도 따라올 수 있다. 여기서 나오는 코드는 정�
 | 01 | [위협 모델과 라벨 경계](01-threat-model/LESSON.md) | 무엇을 탐지할지 정의하고 어노테이션 가이드를 쓴다 | `GUIDE.md`, 직접 만든 샘플 10건 |
 | 02 | [규칙 기반선](02-rule-baseline/LESSON.md) | 정규식 탐지기를 돌리고 어디서 틀리는지 본다 | `runs/rule-pred.jsonl` |
 | 03 | [평가 기초](03-evaluation-basics/LESSON.md) | 지표를 손으로 계산하고 slice로 약점을 찾는다 | `runs/rule-report.json` |
-| 04 | [제로샷 모델](04-run-pretrained/LESSON.md) | 학습 없이 범용 모델을 써보고 규칙과 비교한다 | 규칙 vs 모델 비교표 |
+| 04 | [제로샷·기성 가드 모델](04-run-pretrained/LESSON.md) | 학습 없는 모델들과 비교한다 | 기준선 비교표 |
+
+예시 답안: [SOLUTIONS.md](SOLUTIONS.md) — 먼저 스스로 답한 뒤에 열 것.
 
 ## 초급을 마치면 손에 남는 것
 
@@ -21,10 +23,18 @@ ML 경험이 없어도 따라올 수 있다. 여기서 나오는 코드는 정�
 | 방법 | macro F1 | attack recall | benign FPR |
 |---|---:|---:|---:|
 | 전부 BENIGN 예측 | 0.167 | 0.000 | 0.000 |
-| 규칙 기반선 | 0.672 | 0.562 | 0.125 |
+| 전부 PROMPT_INJECTION 예측 | 0.167 | 1.000 | 1.000 |
+| 규칙 기반선 | 0.672 [0.445–0.841] | 0.562 | 0.125 |
 | 제로샷 mDeBERTa | 0.465 | 0.500 | 0.500 |
+| 전용 가드 모델 (`protectai/deberta-v3-...`) | 0.333 † | **0.938** | **0.625** |
 
-*`common/data/bench/gold.jsonl` 24건 기준. 표본이 작아 신뢰구간이 넓다.*
+*`common/data/bench/gold.jsonl` 24건 기준. 대괄호는 95% bootstrap 신뢰구간 — **폭이 0.4에
+가깝다.** 이 벤치로는 0.67과 0.80을 구분할 수 없다.*
+
+† 2-class 모델이라 JAILBREAK를 구조적으로 못 맞힌다. **이 macro F1은 다른 행과 비교하면 안 된다.**
+
+두 극단(전부 BENIGN / 전부 공격)의 macro F1이 같고 각각 한 지표에서 만점이라는 점을 본다.
+**지표 하나를 목표로 삼으면 최악의 탐지기가 그 목표를 달성한다.**
 
 ## 수료 기준
 
@@ -34,6 +44,9 @@ ML 경험이 없어도 따라올 수 있다. 여기서 나오는 코드는 정�
 2. `benign FPR`이 0인데도 그 탐지기를 배포하면 안 되는 경우
 3. 전체 macro F1이 0.672인데 특정 slice가 0.000일 수 있는 이유
 4. 1GB짜리 다국어 모델이 정규식 몇 줄에 진 이유
+5. **전용 가드 모델의 macro F1(0.333)을 우리 모델과 비교하면 안 되는 이유**
+6. **규칙 기반선 macro F1의 신뢰구간이 [0.445–0.841]일 때, "0.70짜리 모델이 더 낫다"고
+   말할 수 있는가**
 
 ## 실행 순서 요약
 
@@ -60,4 +73,24 @@ python 01-beginner/04-run-pretrained/run_zero_shot.py \
   --input common/data/bench/gold.jsonl --output runs/zero-shot-pred.jsonl
 python 01-beginner/03-evaluation-basics/evaluate.py \
   --gold common/data/bench/gold.jsonl --pred runs/zero-shot-pred.jsonl
+
+# 04 전용 가드 모델 — 진짜 기준선 (모델 약 700MB 다운로드)
+python 01-beginner/04-run-pretrained/run_guard_model.py \
+  --input common/data/bench/gold.jsonl --output runs/guard-pred.jsonl
+python 01-beginner/03-evaluation-basics/evaluate.py \
+  --gold common/data/bench/gold.jsonl --pred runs/guard-pred.jsonl
+
+# 04 하드 네거티브만 따로 — 이 모델의 benign FPR은 0.750까지 오른다
+python 01-beginner/04-run-pretrained/run_guard_model.py \
+  --input common/data/bench/negatives.jsonl --output runs/guard-neg-pred.jsonl
+python 01-beginner/03-evaluation-basics/evaluate.py \
+  --gold common/data/bench/negatives.jsonl --pred runs/guard-neg-pred.jsonl
+```
+
+선택 — LLM에게 직접 판정시키는 기준선. **벤치 문장을 외부 API로 전송한다.**
+
+```bash
+pip install anthropic && export ANTHROPIC_API_KEY=...
+python 01-beginner/04-run-pretrained/run_llm_judge.py \
+  --input common/data/bench/gold.jsonl --output runs/judge-pred.jsonl
 ```

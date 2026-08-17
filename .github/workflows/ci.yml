@@ -1,0 +1,71 @@
+name: ci
+
+# 이 워크플로는 "모델 없이 돌아가는 검사"만 한다. 파인튜닝한 모델은 약 520MB이고
+# git에 넣지 않으므로 CI에서 재현할 수 없다. 대신 규칙 기반선을 회귀 감시선으로 쓴다:
+# 공용 채점기나 규칙을 건드려 기준선이 나빠지면 여기서 막힌다.
+#
+# 03-advanced/03-hybrid-gates 레슨의 산출물이 이 파일이다. 게이트의 핵심은
+# 사람이 잊어도 자동으로 막히는 것이므로, quality_gate.py를 손으로 돌리는 것만으로는
+# 레슨이 끝나지 않는다.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # torch/transformers는 설치하지 않는다. 여기서 도는 코드는 정규식과 산수뿐이라
+      # guardlab만 있으면 되고, 설치 시간이 몇 분에서 몇 초로 줄어든다.
+      - name: Install guardlab
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ./common pytest
+
+      - name: Unit tests
+        run: python -m pytest common/tests -q
+
+      - name: Rule baseline on the fixed bench
+        run: |
+          python 01-beginner/02-rule-baseline/rule_detector.py \
+            --input common/data/bench/gold.jsonl --output runs/ci/rule-pred.jsonl
+          python 02-intermediate/04-evaluation-harness/evaluate.py \
+            --gold common/data/bench/gold.jsonl --pred runs/ci/rule-pred.jsonl \
+            --out runs/ci/rule-report
+
+      # 회귀 방지선이지 운영 목표치가 아니다. 규칙 기반선의 실측은 macro F1 0.672 /
+      # attack recall 0.562이고, 그보다 조금 아래에 선을 그어 "나빠지면 실패"만 잡는다.
+      # 운영 목표치(recall >= 0.90, FPR <= 0.05)를 여기 쓰면 CI가 늘 빨간불이라
+      # 아무도 보지 않게 된다.
+      - name: Quality gate (regression guard)
+        run: |
+          python 03-advanced/03-hybrid-gates/quality_gate.py \
+            runs/ci/rule-report/report.json \
+            --label "rule-baseline regression guard" \
+            --min-macro-f1 0.60 --min-attack-recall 0.50 --max-benign-fpr 0.20
+
+      - name: Hard negatives (benign FPR only)
+        run: |
+          python 01-beginner/02-rule-baseline/rule_detector.py \
+            --input common/data/bench/negatives.jsonl --output runs/ci/neg-pred.jsonl
+          python 02-intermediate/04-evaluation-harness/evaluate.py \
+            --gold common/data/bench/negatives.jsonl --pred runs/ci/neg-pred.jsonl \
+            --out runs/ci/neg-report
+          # 이 파일은 BENIGN만 들어 있다. macro F1과 attack recall은 의미가 없으므로
+          # benign FPR 하나만 검사한다. report.md 상단의 경고 문구가 그 이유를 설명한다.
+          python 03-advanced/03-hybrid-gates/quality_gate.py \
+            runs/ci/neg-report/report.json \
+            --label "hard negatives" --max-benign-fpr 0.25
+
+      - name: Synthetic data generation and leakage check
+        run: |
+          python 02-intermediate/02-synthetic-data/gen_synth.py --out runs/ci/data/v1
+          python 02-intermediate/01-dataset-schema/inspect_data.py runs/ci/data/v1

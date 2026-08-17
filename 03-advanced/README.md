@@ -16,21 +16,41 @@
 | 05 | [벤치마크와 리포트](05-benchmark-and-report/LESSON.md) | 세 축 보고, 신뢰구간, 모델 카드 | `model-report.md` |
 | 06 | [캡스톤](06-capstone/README.md) | 데이터→모델→정책→리포트 완주 | 10개 산출물 |
 
+예시 답안: [SOLUTIONS.md](SOLUTIONS.md) · 운영 적용: [APPENDIX-production-checklist.md](APPENDIX-production-checklist.md)
+
 ## 고급에서 확인하게 되는 실측
 
 이 단계의 핵심은 **중급에서 만든 모델이 실제로는 얼마나 약한지** 드러내는 것이다.
 
 | 상황 | 결과 |
 |---|---|
-| 긴 문서, 단일 truncation | 공격 3건 **전부 미탐** (attack recall 0.000) |
-| 긴 문서, sliding window | 3건 다 탐지하지만 **정상 문서도 오탐** |
-| 대소문자 변형 | attack recall 0.914 → **0.609** (33%p 하락) |
-| 공백 변형 (규칙 기반선) | attack recall 0.562 → **0.438** |
-| `source=tool` slice | macro F1 0.578, benign FPR **0.625** |
-| 품질 게이트 (recall≥0.90, FPR≤0.05) | **FAILED** — benign FPR 0.250 |
+| 긴 문서, 단일 truncation | attack recall **0.333** (3건 중 1건만 탐지) |
+| 긴 문서, sliding window | attack recall 1.000이지만 **benign FPR도 1.000** |
+| 제로폭 문자 (규칙 기반선) | attack recall 0.562 → **0.000** (완전 무력화) |
+| base64 포장 (규칙 기반선) | attack recall 0.562 → **0.000** |
+| 동형이의 문자 (모델) | benign FPR 0.487 → **1.000** |
+| base64 포장 (모델) | benign FPR 0.487 → **1.000** |
+| `source=retrieved` slice | macro F1 **0.280**, benign FPR **1.000** |
+| `source=system` slice | macro F1 **0.208**, benign FPR **0.938** |
+| seed만 바꿔 재학습 | macro F1이 0.625 ↔ 0.733으로 흔들린다 (폭 **0.108**) |
+| 품질 게이트 (recall≥0.90, FPR≤0.05) | **FAILED** — benign FPR 0.375 |
 
-**"macro F1 0.750짜리 괜찮은 모델"이 실제로는 이 상태다.** 벤치마크 숫자 하나로 배포 결정을 내리면
+**"macro F1 0.7짜리 괜찮은 모델"이 실제로는 이 상태다.** 벤치마크 숫자 하나로 배포 결정을 내리면
 안 되는 이유가 여기 있다.
+
+특히 마지막에서 두 번째 줄을 본다. **같은 데이터·같은 설정에서 seed만 바꿔도 macro F1이 0.11
+폭으로 움직인다.** 소수점 셋째 자리까지 인용된 성능 수치는 대부분 그 자리에 근거가 없다.
+
+### 규칙과 모델의 실패 양상은 정반대다
+
+| 변형 | 규칙 기반선 | 파인튜닝 모델 |
+|---|---|---|
+| 제로폭 문자 | attack recall **0.000** (전부 미탐) | 영향 없음 |
+| base64 포장 | attack recall **0.000** (전부 미탐) | benign FPR **1.000** (전부 오탐) |
+| 동형이의 문자 | attack recall 0.143 | benign FPR **1.000** |
+
+**규칙은 공격을 놓치고, 모델은 정상을 막는다.** 같은 입력에 대해 정확히 반대로 실패한다.
+이것이 `03-hybrid-gates`에서 둘을 겹쳐 쓰는 근거다 — 다만 겹친다고 공짜로 좋아지지는 않는다.
 
 ## 관통하는 원칙
 
@@ -91,7 +111,8 @@ python 03-advanced/04-serving-onnx-latency/export_onnx.py \
   --model runs/models/mbert-v1 --out runs/models/mbert-v1/model.onnx
 python 03-advanced/04-serving-onnx-latency/bench_latency.py \
   --model runs/models/mbert-v1 --onnx runs/models/mbert-v1/model.onnx \
-  --runs 30 --out runs/latency.json
+  --runs 60 --out runs/latency.json
+# 지연시간뿐 아니라 요청당 원가도 추정한다 (--cost-per-hour / --llm-cost-per-request)
 
 # 05 리포트
 python 03-advanced/05-benchmark-and-report/make_report.py \

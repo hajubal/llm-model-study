@@ -59,11 +59,12 @@ TEMPLATES = [
 템플릿 하나가 `group_id` 하나다. 라벨·언어·출처를 **템플릿에 명시**한다. 문자열을 보고 언어를 추측하지
 않는다(이전 버전은 `template.isascii()`로 추론했는데, 그러면 한영 혼용 문장을 잘못 분류한다).
 
-템플릿은 총 **90개**이고, `(label, language, source)` 조합마다 3개 이상이 되도록 배치했다.
+템플릿은 총 **108개**이고, `(label, language, source)` 조합마다 3개 이상이 되도록 배치했다.
+`source`는 `user` / `retrieved` / `tool` / `system` 넷이다.
 
 ```text
-3 라벨 × 2 언어 × 3 출처 = 18개 조합
-각 조합에 user 9개 / retrieved 3개 / tool 3개 → 라벨·언어당 15개
+3 라벨 × 2 언어 × 4 출처 = 24개 조합
+라벨·언어당 user 9개 / retrieved 3개 / tool 3개 / system 3개 = 18개
 ```
 
 이 구조가 앞 레슨의 층화 분할을 가능하게 한다.
@@ -92,12 +93,12 @@ def _slot_values(template, language, count, rng):
 
 | | 이전 버전 | 현재 버전 |
 |---|---:|---:|
-| 템플릿 수 | 30 | **90** |
+| 템플릿 수 | 30 | **108** |
 | `n_per_group` | 12 | 8 |
-| 총 샘플 | 360 | 720 |
-| **유니크 문장** | 152 | **720** |
+| 총 샘플 | 360 | 864 |
+| **유니크 문장** | 152 | **864** |
 | 문장 중복률 | **56%** | 0% |
-| test 그룹(템플릿) 수 | 6 | **24** |
+| test 그룹(템플릿) 수 | 6 | **30** |
 
 이전 버전은 슬롯 후보가 topic 6개 / target 6개뿐이라, 한 템플릿에서 12개를 뽑으면 절반이 중복이었다.
 그리고 라벨×언어 조합당 그룹이 ko 7개 / en 3개여서, **test에는 라벨·언어당 템플릿이 딱 1개**만 들어갔다.
@@ -113,15 +114,70 @@ X  pi-memory       PROMPT_INJECTION → JAILBREAK          12건
 **템플릿 하나를 틀리면 test의 16.7%가 통째로 오답**이 된다. 점수가 모델 실력이 아니라 "어느 템플릿이
 test로 갔는가"에 좌우된다. 실제로 seed만 바꿔도 macro F1이 0.276 ↔ 0.522로 흔들렸다.
 
-템플릿을 90개로 늘린 뒤 같은 설정으로 학습한 결과:
+템플릿을 108개로 늘린 뒤 같은 설정으로 학습한 결과:
 
-| | 이전(템플릿 30) | 현재(템플릿 90) |
+| | 이전(템플릿 30) | 현재(템플릿 108) |
 |---|---:|---:|
-| test macro F1 | 0.276 | **0.750** |
-| 독립 벤치 macro F1 | 0.627 | **0.837** |
+| test macro F1 | 0.276 | **0.637** |
+| 독립 벤치 macro F1 | 0.627 | **0.717** |
+
+*현재 값은 seed 42의 단일 실행이다. seed 편차가 0.108이므로 두 열의 차이 중 일부는 노이즈다.
+그래도 0.276 → 0.637은 편차보다 훨씬 큰 변화이므로 표현 수의 효과는 실재한다.*
 
 > **교훈** — "데이터를 늘렸는데 성능이 안 오른다"면 **샘플 수가 아니라 표현 수**를 봐야 한다.
 > 같은 문장을 100번 넣어도 모델이 배우는 것은 한 문장이다.
+
+### 그런데 표현 수는 조합별로 세야 한다
+
+템플릿 108개는 전체 숫자다. 학습에 실제로 쓰이는 것은 **`(label, language, source)` 조합별**
+템플릿 수이고, 그 분포는 심하게 치우쳐 있다. 직접 세어 보자.
+
+```bash
+python - <<'PY'
+from collections import Counter
+from guardlab.io import read_jsonl
+
+for split in ("train", "dev", "test"):
+    rows = read_jsonl(f"runs/data/v1/{split}.jsonl")
+    groups = {}
+    for row in rows:
+        groups.setdefault((row.label, row.language, row.source), set()).add(row.group_id)
+    print(f"{split}: 조합당 group 수 분포 {dict(Counter(len(v) for v in groups.values()))}")
+PY
+```
+
+```text
+train: 조합당 group 수 분포 {1: 18, 6: 6}   (조합 24개)
+dev:   조합당 group 수 분포 {1: 24}
+test:  조합당 group 수 분포 {2: 6, 1: 18}
+```
+
+**24개 조합 중 18개가 train에 템플릿 1개(문장 8건)뿐이다.** `user`를 제외한
+`retrieved` / `tool` / `system` 전부가 여기 해당한다.
+
+이유는 산수다. `group_stratified_split`은 조합마다 group을 train/dev/test로 나누는데,
+각 split에 최소 1개를 보장해야 하므로:
+
+```text
+조합당 group 3개  ->  train 1 / dev 1 / test 1
+조합당 group 6개  ->  train 4 / dev 1 / test 1
+```
+
+`user`는 조합당 템플릿이 18개라 train에 6개가 남는다. 나머지는 **최소 조건인 3개**만
+채웠으므로 train에 1개다.
+
+### 결과가 slice 성능에 그대로 나타난다
+
+| source | train 템플릿 수(조합당) | test macro F1 |
+|---|---:|---:|
+| `user` | 6 | 높다 |
+| `tool` | 1 | 들쭉날쭉하다 |
+| `retrieved` | 1 | 낮다 |
+| `system` | 1 | 가장 낮다 |
+
+**"조합당 최소 3개"는 split이 실패하지 않기 위한 하한선이지 학습에 충분한 양이 아니다.**
+이 커리큘럼의 기본 데이터가 특정 slice에서 무너지는 가장 큰 이유가 이것이고,
+과제 2가 바로 이 지점을 다룬다.
 
 ---
 
@@ -135,12 +191,12 @@ python 02-intermediate/01-dataset-schema/inspect_data.py runs/data/v1
 출력:
 
 ```text
-train: 384
-dev: 144
-test: 192
-train n= 384 labels={...} sources={'user': 288, 'retrieved': 48, 'tool': 48} languages={'ko': 192, 'en': 192}
-dev   n= 144 ...
-test  n= 192 ...
+train: 432
+dev: 192
+test: 240
+train n= 432 labels={...} sources={'user': 288, 'retrieved': 48, 'tool': 48, 'system': 48} languages={'ko': 216, 'en': 216}
+dev   n= 192 ...
+test  n= 240 ...
 OK: id 중복 없음, group_id leakage 없음
 ```
 
@@ -154,10 +210,10 @@ OK: id 중복 없음, group_id leakage 없음
   "generator": "guardlab.synth.generate",
   "seed": 42,
   "n_per_group": 8,
-  "n_templates": 90,
+  "n_templates": 108,
   "split_strategy": "label/language/source-stratified group_id split",
-  "counts": {"train": 384, "dev": 144, "test": 192},
-  "groups": {"train": 48, "dev": 18, "test": 24},
+  "counts": {"train": 432, "dev": 192, "test": 240},
+  "groups": {"train": 54, "dev": 24, "test": 30},
   "limitations": ["synthetic templates", "small vocabulary", "not a product benchmark"]
 }
 ```

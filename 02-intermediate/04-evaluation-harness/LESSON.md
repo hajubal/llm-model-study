@@ -55,8 +55,8 @@ runs/models/mbert-v1/test-report/
   "n_samples": 192,
   "accuracy": 0.75,
   "macro_f1": 0.75,
-  "attack_recall": 0.9141,
-  "benign_fpr": 0.3281,
+  "attack_recall": 1.0,
+  "benign_fpr": 0.4875,
   "per_label": { "BENIGN": {"support": 64, "tp": 40, "fp": 15, "fn": 24, ...}, ... },
   "confusion": { "BENIGN": {"BENIGN": 40, "PROMPT_INJECTION": 5, "JAILBREAK": 19}, ... },
   "slices": { "source": {...}, "language": {...} },
@@ -104,17 +104,27 @@ python 02-intermediate/04-evaluation-harness/evaluate.py \
 
 | 데이터 | n | macro F1 | attack recall | benign FPR |
 |---|---:|---:|---:|---:|
-| 합성 test | 192 | 0.750 | 0.914 | 0.328 |
-| 독립 bench | 24 | **0.837** | 0.938 | 0.250 |
+| 합성 test | 240 | 0.637 [0.574–0.697] | 1.000 | 0.487 |
+| 독립 bench | 24 | **0.717** [0.500–0.879] | 0.938 | 0.375 |
 
 이번에는 독립 벤치가 **더 높다.** 왜일까?
 
 - `gold.jsonl`은 전형적인 공격 문구 위주라 판정이 쉽다
-- 합성 test에는 `[검색 결과]`, `[도구 출력]` 형태의 어려운 샘플이 절반을 차지한다
-- 그리고 **n=24는 너무 작다.** 한 건이 4.2%다. 이 정도 표본에서 0.837과 0.750의 차이는 우연일 수 있다
+- 합성 test에는 `[검색 결과]`, `[도구 출력]`, `[시스템]` 형태의 어려운 샘플이 60%를 차지한다
+- 그리고 **n=24는 너무 작다.** 한 건이 4.2%다
 
-> **읽는 법** — 두 숫자의 차이보다 **왜 다른지 설명할 수 있는가**가 중요하다. 설명이 안 되면 둘 중
-> 하나(또는 둘 다)의 데이터를 다시 봐야 한다.
+**신뢰구간을 보면 세 번째가 결정적이다.** 독립 벤치의 구간은 [0.500–0.879]로 폭이 0.38이고,
+합성 test의 구간 [0.574–0.697]을 완전히 감싼다. **이 두 숫자는 서로 다르다고 말할 수 없다.**
+
+```bash
+# 신뢰구간은 기본으로 계산된다. 반복 횟수를 늘리면 구간이 안정된다
+python 02-intermediate/04-evaluation-harness/evaluate.py \
+  --gold common/data/bench/gold.jsonl --pred runs/models/mbert-v1/bench-pred.jsonl \
+  --out runs/models/mbert-v1/bench-report --bootstrap 5000
+```
+
+> **읽는 법** — 두 숫자의 차이보다 **그 차이가 구간 안에 들어가는지**가 먼저다.
+> 구간이 겹치면 "왜 다른가"를 설명하기 전에 "정말 다른가"를 의심해야 한다.
 
 일반적으로는 반대 방향, 즉 **합성 test가 높고 독립 벤치가 낮은** 경우가 더 흔하다. 그때가 진짜
 일반화 격차이고, 합성 데이터의 표현이 현실과 다르다는 신호다.
@@ -127,22 +137,42 @@ python 02-intermediate/04-evaluation-harness/evaluate.py \
 
 ```text
 ### slice: source
-- retrieved: n=48, macro_f1=0.607, benign_fpr=0.188
-- tool:      n=48, macro_f1=0.578, benign_fpr=0.625
-- user:      n=96, macro_f1=0.887, benign_fpr=0.250
+- retrieved: n=48, macro_f1=0.280, benign_fpr=1.000
+- system:    n=48, macro_f1=0.208, benign_fpr=0.938
+- tool:      n=48, macro_f1=0.958, benign_fpr=0.000
+- user:      n=96, macro_f1=0.750, benign_fpr=0.250
+
+### slice: language
+- en: n=120, macro_f1=0.507, benign_fpr=0.575
+- ko: n=120, macro_f1=0.747, benign_fpr=0.400
 ```
 
-전체 macro F1은 0.750인데:
+전체 macro F1은 0.637인데:
 
-- `user`(직접 입력)는 **0.887** — 잘한다
-- `retrieved`(검색 문서)는 **0.607**
-- `tool`(도구 출력)은 **0.578**, benign FPR이 **0.625** — 정상 도구 출력의 62.5%를 공격으로 오탐한다
+- `tool`(도구 출력)은 **0.958** — 아주 잘한다
+- `user`(직접 입력)는 **0.750**
+- `retrieved`(검색 문서)는 **0.280**, benign FPR **1.000** — **정상 검색 문서를 하나도 통과시키지 않는다**
+- `system`(시스템 채널)은 **0.208**, benign FPR **0.938**
 
 **이것이 이 모델의 진짜 약점이다.** 그리고 이 약점은 전체 점수만 보면 절대 보이지 않는다.
+전체 0.637과 `retrieved` 0.280 사이의 거리를 보라 — 검색 문서 경로로 들어오는 사용자는
+**전체 평균이 아니라 0.280을 100% 경험한다.**
 
-원인은 짐작할 수 있다. `[도구 출력]`, `[검색 결과]` 같은 접두사가 붙은 문장은 학습 데이터에서 공격 쪽에
-많이 등장한다. 모델이 **내용이 아니라 형식을 보고** 판단하고 있을 가능성이 높다. 다음 레슨의 에러 분석에서
-확인한다.
+`en`(0.507)과 `ko`(0.747)의 차이도 크다. 영어 사용자가 훨씬 나쁜 경험을 한다.
+
+원인은 두 겹이다.
+
+1. **데이터**: `(label, language, source)` 조합 24개 중 18개가 train에 템플릿 1개(문장 8건)뿐이고,
+   `retrieved` / `system` / `tool`이 전부 여기 해당한다(`02-synthetic-data` 레슨 참고).
+2. **학습된 특징**: `[검색 결과]`, `[시스템]` 같은 접두사가 정상/공격 양쪽에 모두 등장하는데
+   표본이 1개 템플릿뿐이라, 모델이 **내용이 아니라 형식을 보고** 판단할 가능성이 높다.
+
+`tool`만 0.958로 높은 것이 오히려 단서다. 같은 조건인데 이 slice만 잘 되는 이유를 설명할 수
+없다면, 그 0.958도 믿을 수 없는 숫자다 — 다음 레슨의 에러 분석에서 확인한다.
+
+> **주의** — 이 slice 숫자들은 seed 42의 단일 실행이다. seed 편차가 macro F1 0.108인 만큼,
+> slice 단위 숫자는 더 심하게 흔들린다(표본이 48건뿐이다). **slice 순위가 바뀌는지 확인하려면
+> seed를 여러 번 돌려야 한다.**
 
 > `source`가 왜 slice로 중요한지는 앞 레슨에서 다뤘다. 이 값이 dev/test에 남아 있도록 분할기가
 > `(label, language, source)`로 층화한다.
