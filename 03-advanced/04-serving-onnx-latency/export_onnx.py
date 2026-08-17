@@ -34,8 +34,11 @@ def main() -> None:
         dynamic_axes={"input_ids": {0: "batch", 1: "sequence"}, "attention_mask": {0: "batch", 1: "sequence"}, "logits": {0: "batch"}},
         opset_version=args.opset,
     )
-    tokenizer.save_pretrained(target.parent)
+    # 학습된 모델 폴더를 그대로 덮어쓰지 않도록 서빙용 토크나이저는 ONNX 옆 폴더에 따로 둔다.
+    tokenizer_dir = target.parent / f"{target.stem}-tokenizer"
+    tokenizer.save_pretrained(tokenizer_dir)
     print(f"ONNX -> {target}")
+    print(f"tokenizer -> {tokenizer_dir}")
 
 
 if __name__ == "__main__":

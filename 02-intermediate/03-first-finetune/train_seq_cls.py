@@ -69,9 +69,11 @@ def main() -> None:
     parser.add_argument("--data", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--model", default="distilbert-base-multilingual-cased")
-    parser.add_argument("--epochs", type=float, default=4)
+    # 기본 데이터(train 384건) 기준으로 8 epoch 부근이 dev macro F1의 정점이다. 12 epoch부터는 과적합으로
+    # benign FPR이 다시 올라간다. 데이터를 늘리면 이 값도 다시 찾아야 한다.
+    parser.add_argument("--epochs", type=float, default=8)
     parser.add_argument("--batch", type=int, default=8)
-    parser.add_argument("--lr", type=float, default=3e-5)
+    parser.add_argument("--lr", type=float, default=5e-5)
     parser.add_argument("--max-len", type=int, default=192)
     parser.add_argument("--max-steps", type=int, default=-1)
     parser.add_argument("--device", choices=["auto", "mps", "cuda", "cpu"], default="auto")

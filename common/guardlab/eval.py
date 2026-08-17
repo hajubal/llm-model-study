@@ -73,6 +73,16 @@ class Report:
         lines.append(
             f"- attack recall **{self.attack_recall:.3f}** · benign FPR **{self.benign_fpr:.3f}**"
         )
+        # support 0인 라벨은 F1이 0으로 macro 평균에 들어가고, 해당 지표의 분모도 0이 된다.
+        # 단일 라벨 데이터(hard negative 모음 등)에서 숫자를 잘못 읽지 않도록 명시한다.
+        empty = [label for label in LABELS if self.per_label[label].support == 0]
+        if empty:
+            lines.append(
+                f"- 주의: support가 0인 라벨({', '.join(empty)})의 F1 0이 macro 평균에 포함된다. "
+                "이 데이터에서는 macro F1을 다른 데이터와 비교하지 않는다"
+            )
+        if not any(self.per_label[label].support for label in ATTACK_LABELS):
+            lines.append("- 주의: 공격 샘플이 없어 attack recall 0.000은 '미탐'이 아니라 '해당 없음'이다")
         lines.extend(["", "| 라벨 | support | P | R | F1 |", "|---|---:|---:|---:|---:|"])
         for label in LABELS:
             counts = self.per_label[label]

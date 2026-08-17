@@ -16,23 +16,25 @@ def group_stratified_split(
     for sample in samples:
         groups[sample.group_id].append(sample)
 
-    # label과 language를 함께 층화한다. 하나의 그룹에 여러 값이 섞인 경우 첫 샘플의 값을 쓰지 않고 실패시켜
+    # label, language, source를 함께 층화한다. source까지 넣어야 dev/test에도 retrieved·tool 입력이 남아
+    # 간접 인젝션 slice를 평가할 수 있다. 하나의 그룹에 여러 값이 섞인 경우 첫 샘플의 값을 쓰지 않고 실패시켜
     # 잘못된 group_id 설계를 데이터 생성 단계에서 드러낸다.
-    buckets: dict[tuple[str, str], list[list[Sample]]] = defaultdict(list)
+    buckets: dict[tuple[str, str, str], list[list[Sample]]] = defaultdict(list)
     for group_id, rows in groups.items():
-        keys = {(row.label, row.language) for row in rows}
+        keys = {(row.label, row.language, row.source) for row in rows}
         if len(keys) != 1:
-            raise ValueError(f"group_id {group_id!r} 안에 label/language가 섞여 있습니다: {sorted(keys)}")
+            raise ValueError(f"group_id {group_id!r} 안에 label/language/source가 섞여 있습니다: {sorted(keys)}")
         buckets[next(iter(keys))].append(rows)
 
     result: dict[str, list[Sample]] = {"train": [], "dev": [], "test": []}
     rng = random.Random(seed)
-    for (label, language), bucket_groups in sorted(buckets.items()):
+    for (label, language, source), bucket_groups in sorted(buckets.items()):
         rng.shuffle(bucket_groups)
         n = len(bucket_groups)
         if n < 3:
             raise ValueError(
-                f"{label}/{language}: group이 {n}개뿐입니다. 각 split에 하나씩 두려면 최소 3개가 필요합니다"
+                f"{label}/{language}/{source}: group이 {n}개뿐입니다. "
+                "각 split에 하나씩 두려면 최소 3개가 필요합니다"
             )
         n_train = max(1, min(n - 2, round(n * train_ratio)))
         n_dev = max(1, min(n - n_train - 1, round(n * dev_ratio)))

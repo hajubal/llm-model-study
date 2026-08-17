@@ -15,6 +15,9 @@ def main() -> None:
     args = parser.parse_args()
     gold = read_jsonl(args.gold)
     predictions = {row.id: row for row in read_predictions(args.pred)}
+    missing = sorted({sample.id for sample in gold} - predictions.keys())
+    if missing:
+        raise SystemExit(f"gold/pred id 불일치: 예측에 없는 id {missing[:5]} (총 {len(missing)}건)")
     print("threshold\tattack_recall\tbenign_fpr")
     threshold = 0.0
     while threshold <= 1.000001:

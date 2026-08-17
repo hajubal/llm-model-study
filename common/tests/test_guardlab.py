@@ -44,6 +44,29 @@ def test_group_split_has_no_leakage_and_all_labels():
         assert {row.label for row in rows} == {"BENIGN", "PROMPT_INJECTION", "JAILBREAK"}
 
 
+def test_group_split_keeps_every_source_and_language_in_every_split():
+    # dev/test에 retrieved·tool이 남아야 간접 인젝션 slice를 평가할 수 있다.
+    splits = group_stratified_split(generate(n_per_group=2, seed=7), seed=7)
+    for rows in splits.values():
+        assert {row.source for row in rows} == {"user", "retrieved", "tool"}
+        assert {row.language for row in rows} == {"ko", "en"}
+
+
+def test_group_with_mixed_source_is_rejected():
+    rows = [
+        Sample("a", "text-a", "BENIGN", "user", "ko", "g"),
+        Sample("b", "text-b", "BENIGN", "retrieved", "ko", "g"),
+    ]
+    with pytest.raises(ValueError):
+        group_stratified_split(rows)
+
+
+def test_synthetic_text_is_unique():
+    # 같은 문장이 반복되면 샘플 수만 늘고 학습 신호는 늘지 않는다.
+    rows = generate()
+    assert len({row.text for row in rows}) == len(rows)
+
+
 def test_leakage_is_detected():
     with pytest.raises(ValueError):
         assert_no_group_leakage({

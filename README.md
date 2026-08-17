@@ -48,7 +48,7 @@
 한 줄에 한 샘플인 JSONL을 사용한다.
 
 ```json
-{"id":"ko-pi-001","text":"...","label":"PROMPT_INJECTION","source":"user","language":"ko","group_id":"pi-ignore-previous","meta":{"synthetic":true}}
+{"id":"ko-pi-001","text":"...","label":"PROMPT_INJECTION","source":"user","language":"ko","group_id":"pi-ko-ignore","meta":{"synthetic":true}}
 ```
 
 - `id`: 분할 전체에서 유일한 ID
@@ -63,16 +63,23 @@
 1. 스크립트를 먼저 읽고 출력과 실패 조건을 예측한다.
 2. 모든 실험 결과는 `runs/` 아래 새 폴더에 남긴다. 기존 결과를 덮어쓰지 않는다.
 3. 데이터 변경과 임계값 변경을 동시에 하지 않는다. 한 번에 한 변수만 바꾼다.
-4. 랜덤 행 분할 대신 `group_id` 분할을 사용해 템플릿 누수를 막는다.
+4. 랜덤 행 분할 대신 `group_id` 분할을 사용해 템플릿 누수를 막는다. 분할은 `label`·`language`·`source`를
+   함께 층화하므로, dev/test에도 검색 문서와 도구 출력이 남아 간접 인젝션 slice를 볼 수 있다.
 5. 정상 하드 네거티브를 공격 데이터만큼 중요하게 다룬다.
+6. 샘플 수보다 표현(템플릿) 수를 먼저 늘린다. 같은 문장을 여러 번 넣어도 학습 신호는 늘지 않는다.
 
 ## 4. 완료 기준
 
 | 단계 | 통과 기준 |
 |---|---|
 | 초급 | 규칙 기반선을 고정 mini set에서 평가하고 macro F1, attack recall, benign FPR의 차이를 설명한다 |
-| 중급 | group split 데이터로 모델을 학습하고 test macro F1 ≥ 0.80, benign FPR ≤ 5%를 목표로 개선 루프를 1회 수행한다 |
+| 중급 | group split 데이터로 모델을 학습해 규칙 기반선을 넘고(기본 설정 실측 test macro F1 ≈ 0.75), dev에서 정한 threshold를 test에 한 번만 적용하며, 오류군 하나를 골라 개선 루프를 1회 수행한다 |
 | 고급 | 간접 인젝션·변형·하드 네거티브 벤치 결과, 하이브리드 정책, 지연시간을 한 리포트로 묶고 한계를 기록한다 |
+
+기본 제공 합성 데이터는 템플릿 90개짜리 교육용이라 그대로 학습하면 macro F1이 0.75 안팎, benign FPR이
+30% 안팎에서 멈춘다. `macro F1 ≥ 0.80`, `benign FPR ≤ 5%`는 **개선 루프의 목표치**이지 기본 설정의 결과가
+아니다. 여기에 도달하려면 hard negative 템플릿을 늘리고(`02-intermediate/02` 과제), threshold를 dev에서
+조정해야 한다. 숫자가 바로 나오지 않는 것이 실패가 아니라, 무엇을 바꿔야 오르는지 찾는 것이 이 단계의 과제다.
 
 수치는 학습 목표이지 보안 보증이 아니다. 탐지 모델 하나로 입력을 안전하다고 증명할 수 없으며, 권한 분리,
 도구 allowlist, 컨텍스트 경계, 출력 검증, 감사 로그와 함께 방어층으로 사용해야 한다.
